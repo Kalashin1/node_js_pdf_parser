@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Parser & Data Extractor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .file-name {
+      transition: all 0.3s ease;
+    }
+
+    .file-name.has-file {
+      color: #10B981;
+      font-weight: 500;
+    }
+
+    .upload-btn {
+      transition: all 0.3s ease;
+    }
+
+    .upload-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .file-preview {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.5s ease;
+    }
+
+    .file-preview.show {
+      max-height: 200px;
+    }
+
+    .file-input-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+      width: 100%;
+    }
+
+    .file-input-wrapper input[type=file] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    .status-message {
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .status-success {
+      background-color: #d1fae5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+
+    .status-error {
+      background-color: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+
+    .results-container {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.5s ease;
+    }
+
+    .results-container.show {
+      max-height: 1200px;
+    }
+
+    .tab-button {
+      padding: 10px 16px;
+      border: none;
+      background-color: #f3f4f6;
+      color: #6b7280;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border-radius: 5px 5px 0 0;
+      font-size: 0.875rem;
+      white-space: nowrap;
+    }
+
+    .tab-button.active {
+      background-color: #4f46e5;
+      color: white;
+    }
+
+    .tab-content {
+      display: none;
+      padding: 20px;
+      border: 1px solid #e5e7eb;
+      border-top: none;
+      border-radius: 0 0 5px 5px;
+      background-color: white;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .extracted-text-content {
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      line-height: 1.4;
+      max-height: 500px;
+      overflow-y: auto;
+      background-color: #f8fafc;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 15px;
+    }
+
+    .json-content {
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      line-height: 1.4;
+      max-height: 500px;
+      overflow-y: auto;
+      background-color: #f8fafc;
+      padding: 15px;
+      border-radius: 5px;
+    }
+
+    .json-key {
+      color: #7c3aed;
+    }
+
+    .json-string {
+      color: #059669;
+    }
+
+    .json-number {
+      color: #dc2626;
+    }
+
+    .json-boolean {
+      color: #2563eb;
+    }
+
+    .json-null {
+      color: #6b7280;
+    }
+
+    .copy-btn {
+      background-color: #e0e7ff;
+      color: #4f46e5;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: background-color 0.3s;
+      margin-left: 5px;
+    }
+
+    .copy-btn:hover {
+      background-color: #c7d2fe;
+    }
+
+    .copy-btn.copied {
+      background-color: #bbf7d0;
+      color: #16a34a;
+    }
+
+    .format-btn {
+      background-color: #f0f9ff;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: background-color 0.3s;
+      margin-left: 5px;
+    }
+
+    .format-btn:hover {
+      background-color: #e0f2fe;
+    }
+
+    .tab-content-wrapper {
+      position: relative;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 15px;
+    }
+
+    .page-indicator {
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+
+    .page-btn {
+      background-color: #4f46e5;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: background-color 0.3s;
+    }
+
+    .page-btn:hover:not(:disabled) {
+      background-color: #4338ca;
+    }
+
+    .page-btn:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .page-content {
+      min-height: 400px;
+    }
+
+    .action-buttons {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+
+    .schedule-table,
+    .positions-table,
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    .schedule-table th,
+    .positions-table th,
+    .details-table th {
+      background-color: #4f46e5;
+      color: white;
+      padding: 10px;
+      text-align: left;
+    }
+
+    .schedule-table td,
+    .positions-table td,
+    .details-table td {
+      padding: 10px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .schedule-table tr:nth-child(even),
+    .positions-table tr:nth-child(even),
+    .details-table tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+
+    .schedule-table tr:hover,
+    .positions-table tr:hover,
+    .details-table tr:hover {
+      background-color: #f1f5f9;
+    }
+
+    .details-section {
+      margin-top: 20px;
+      border: 1px solid #e5e7eb;
+      border-radius: 5px;
+      padding: 15px;
+      background-color: #f8fafc;
+    }
+
+    .details-section h4 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      color: #374151;
+      font-weight: 600;
+    }
+
+    .tab-scroll-container {
+      display: flex;
+      overflow-x: auto;
+      border-bottom: 1px solid #e5e7eb;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .tab-scroll-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    .info-card {
+      background-color: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .info-card h3 {
+      margin-top: 0;
+      color: #374151;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+
+    .info-item {
+      margin-bottom: 12px;
+    }
+
+    .info-label {
+      font-weight: 600;
+      color: #4b5563;
+      margin-bottom: 4px;
+    }
+
+    .info-value {
+      color: #1f2937;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="min-h-screen flex items-center justify-center bg-gray-100 py-8">
+    <div class="w-full max-w-6xl p-8 space-y-6 bg-white rounded-xl shadow-lg">
+      <h1 class="text-3xl font-bold text-center text-gray-900">
+        PDF Parser & Data Extractor
+      </h1>
+      <p class="text-center text-gray-600">Upload a PDF to extract and analyze its content</p>
+
+      <form class="space-y-6" id="uploadForm" enctype="multipart/form-data">
+        <div class="pt-4 border-t border-gray-200">
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Select PDF to Upload
+          </label>
+
+          <!-- File upload area -->
+          <div
+            class="mt-4 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center transition-colors hover:border-indigo-400"
+            id="dropArea">
+            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48"
+              aria-hidden="true">
+              <path
+                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+
+            <div class="mt-4">
+              <div class="file-input-wrapper">
+                <button type="button"
+                  class="cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md shadow-sm transition duration-150 ease-in-out">
+                  Choose File
+                </button>
+                <input id="file-upload" name="file-upload" type="file" accept="application/pdf">
+              </div>
+            </div>
+
+            <p class="mt-2 text-sm text-gray-600">
+              or drag and drop your PDF here
+            </p>
+            <p class="text-xs text-gray-500 mt-1">PDF up to 10MB</p>
+          </div>
+
+          <!-- File info display -->
+          <div class="mt-4 flex flex-col space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <span id="file-name-display" class="text-sm text-gray-500 file-name">
+                  No file selected
+                </span>
+                <span id="file-size-display" class="text-xs text-gray-400 ml-2"></span>
+              </div>
+              <button type="button" id="clear-file" class="hidden text-sm text-red-600 hover:text-red-800">
+                Remove
+              </button>
+            </div>
+
+            <!-- File preview -->
+            <div id="file-preview" class="file-preview bg-gray-50 p-3 rounded-md">
+              <p class="text-xs text-gray-500">File preview would appear here</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="status-message" class="status-message"></div>
+
+        <div>
+          <button type="submit" id="upload-btn"
+            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 upload-btn"
+            disabled>
+            Upload & Extract Data
+          </button>
+        </div>
+      </form>
+
+      <!-- Results Section -->
+      <div id="results-container" class="results-container mt-8">
+        <h3 class="text-xl font-bold text-gray-900 mb-4">Extracted Results</h3>
+
+        <!-- Tab Navigation -->
+        <div class="tab-scroll-container">
+          <button class="tab-button active" data-tab="text-tab">Extracted Text</button>
+          <button class="tab-button" data-tab="project-tab">Project Details</button>
+          <button class="tab-button" data-tab="manager-tab">Construction Manager</button>
+          <button class="tab-button" data-tab="building-tab">Building Details</button>
+          <button class="tab-button" data-tab="schedule-tab">Construction Schedule</button>
+          <button class="tab-button" data-tab="positions-tab">Order Positions</button>
+          <button class="tab-button" data-tab="json-tab">Structured Data</button>
+        </div>
+
+        <!-- Tab Contents -->
+        <div class="tab-content-wrapper">
+          <!-- Extracted Text Tab -->
+          <div id="text-tab" class="tab-content active">
+            <div class="action-buttons">
+              <button class="copy-btn" data-content="text">Copy All Text</button>
+            </div>
+            <div class="page-content">
+              <div id="extracted-text-content" class="extracted-text-content">
+                <p class="text-gray-500 text-center">No extracted text yet. Upload a PDF to see its content here.</p>
+              </div>
+            </div>
+            <div class="pagination">
+              <button id="prev-page" class="page-btn" disabled>Previous</button>
+              <span id="page-indicator" class="page-indicator">Page 0 of 0</span>
+              <button id="next-page" class="page-btn" disabled>Next</button>
+            </div>
+          </div>
+
+          <!-- Project Details Tab -->
+          <div id="project-tab" class="tab-content">
+            <div class="action-buttons">
+              <button class="copy-btn" data-content="project">Copy Project Details</button>
+            </div>
+            <div id="project-content">
+              <p class="text-gray-500 text-center">No project details yet. Upload a PDF to see the project information
+                here.</p>
+            </div>
+          </div>
+
+          <!-- Construction Manager Tab -->
+          <div id="manager-tab" class="tab-content">
+            <div class="action-buttons">
+              <button class="copy-btn" data-content="manager">Copy Manager Details</button>
+            </div>
+            <div id="manager-content">
+              <p class="text-gray-500 text-center">No construction manager details yet. Upload a PDF to see the manager
+                information here.</p>
+            </div>
+          </div>
+
+          <!-- Building Details Tab -->
+          <div id="building-tab" class="tab-content">
+            <div class="action-buttons">
+              <button class="copy-btn" data-content="building">Copy Building Details</button>
+            </div>
+            <div id="building-content">
+              <p class="text-gray-500 text-center">No building details yet. Upload a PDF to see the building information
+                here.</p>
+            </div>
+          </div>
+
+          <!-- Construction Schedule Tab -->
+          <div id="schedule-tab" class="tab-content">
+            <div class="action-buttons">
+              <button class="copy-btn" data-content="schedule">Copy Schedule</button>
+            </div>
+            <div id="schedule-content">
+              <p class="text-gray-500 text-center">No construction schedule data yet. Upload a PDF to see the schedule
+                here.</p>
+            </div>
+          </div>
+
+          <!-- Order Positions Tab -->
+          <div id="positions-tab" class="tab-content">
+            <div class="action-buttons">
+              <button class="copy-btn" data-content="positions">Copy Positions</button>
+            </div>
+            <div id="positions-content">
+              <p class="text-gray-500 text-center">No order positions data yet. Upload a PDF to see the positions here.
+              </p>
+            </div>
+          </div>
+
+          <!-- JSON Data Tab -->
+          <div id="json-tab" class="tab-content">
+            <div class="action-buttons">
+              <button class="copy-btn" data-content="json">Copy JSON</button>
+              <button class="format-btn" id="format-json">Minify JSON</button>
+            </div>
+            <div id="json-content" class="json-content">
+              <p class="text-gray-500 text-center">No structured data yet. Upload a PDF to see the parsed data here.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const fileInput = document.getElementById('file-upload');
+      const fileNameDisplay = document.getElementById('file-name-display');
+      const fileSizeDisplay = document.getElementById('file-size-display');
+      const clearFileBtn = document.getElementById('clear-file');
+      const uploadBtn = document.getElementById('upload-btn');
+      const dropArea = document.getElementById('dropArea');
+      const filePreview = document.getElementById('file-preview');
+      const uploadForm = document.getElementById('uploadForm');
+      const statusMessage = document.getElementById('status-message');
+      const resultsContainer = document.getElementById('results-container');
+      const extractedTextContent = document.getElementById('extracted-text-content');
+      const jsonContent = document.getElementById('json-content');
+      const projectContent = document.getElementById('project-content');
+      const managerContent = document.getElementById('manager-content');
+      const buildingContent = document.getElementById('building-content');
+      const scheduleContent = document.getElementById('schedule-content');
+      const positionsContent = document.getElementById('positions-content');
+      const tabButtons = document.querySelectorAll('.tab-button');
+      const tabContents = document.querySelectorAll('.tab-content');
+      const copyButtons = document.querySelectorAll('.copy-btn');
+      const prevPageBtn = document.getElementById('prev-page');
+      const nextPageBtn = document.getElementById('next-page');
+      const pageIndicator = document.getElementById('page-indicator');
+      const formatJsonBtn = document.getElementById('format-json');
+
+      // Variables for pagination
+      let textPages = [];
+      let currentPageIndex = 0;
+
+      // Variables for JSON formatting
+      let isJsonFormatted = true;
+      let jsonData = {};
+
+      // Sample API response structure for demonstration
+      const sampleApiResponse = {
+        projectDetails: "ProjectLWS-74460Start: 15.09.2025\nProject Number: LEG-143730-0Completion: 30.09.2025",
+        external_id: "LWS-74460",
+        construction_manager: {
+          name: "Mirko Raschke",
+          phone: "0172 1389317"
+        },
+        building: {
+          apartmentId: "3100.6656.057.00297",
+          address: "Rheiner Str. 4, 45892 Gelsenkirchen",
+          location: "2nd Upper floor, middle unit, Apartment 1",
+          description: "38.21 m², bathroom (3.50 m²), kitchen (7.00 m²), entrance hall, living room, bedroom",
+          notes: "Hazardous materials portal: https://pure.immo-nrw.net/index.php/s/9FMtyDjTdqN8E8Q Demolition:Removal of mixed waste from the apartment and basement. Demolition: Please also dispose of the washing machine from the laundry room."
+        },
+        rentalStatus: "empty",
+        constructionSchedule: [
+          {
+            trade: "Electrical",
+            startDate: "17.09.2025",
+            endDate: "17.09.2025"
+          },
+          {
+            trade: "Plumbing",
+            startDate: "18.09.2025",
+            endDate: "18.09.2025"
+          },
+          {
+            trade: "Painter",
+            startDate: "22.09.2025",
+            endDate: "23.09.2025"
+          },
+          {
+            trade: "Flooring",
+            startDate: "24.09.2025",
+            endDate: "26.09.2025"
+          },
+          {
+            trade: "Carpenter",
+            startDate: "19.09.2025",
+            endDate: "September 19, 2025"
+          },
+          {
+            trade: "Carpenter",
+            startDate: "September 29, 2025",
+            endDate: "September 29, 2025"
+          },
+          {
+            trade: "Cleaning",
+            startDate: "September 30, 2025",
+            endDate: "September 30, 2025"
+          },
+          {
+            trade: "Other",
+            startDate: "September 15, 2025",
+            endDate: "September 16, 2025"
+          }
+        ],
+        splitPages: [
+          "[object Object]Project Data\nProjectLWS-74460Start: 15.09.2025\nProject Number: LEG-143730-0Completion: 30.09.2025\nProject Status: Assigned\nConstruction Manager: Mirko Raschke\nPhone: 0172 1389317\nConstruction Project:\nApartment ID: 3100.6656.057.00297\nAddress: Rheiner Str. 4, 45892 Gelsenkirchen\nLocation: 2nd Upper floor, middle unit, Apartment 1\n\nDetails: 38.21 m², bathroom (3.50 m²), kitchen (7.00 m²), entrance hall, living room, bedroom\n\nNotes: Hazardous materials portal: https://pure.immo-nrw.net/index.php/s/9FMtyDjTdqN8E8Q Demolition:\nRemoval of mixed waste from the apartment and basement. Demolition: Please also dispose of the washing machine from the laundry room.\n\nCompanies:\n\nTDO Tischlerei Deflieze Oberhausen GmbH tdo@deflieze.de\n0208-681301\nBuilding Cleaning Messing info@reinigung-messing.de\n01629106108\nBalde GmbH info@balde-gmbh.de\n017620531596\nSchedule by Trade:\nElectrical (i) 17.09.2025 - 17.09.2025\nPlumbing (i) 18.09.2025 - 18.09.2025\nPainter (i) 22.09.2025 - 23.09.2025\nFlooring (i) 24.09.2025 - 26.09.2025\nCarpenter (i) 19.09.2025 - September 19, 2025\nSeptember 29, 2025 - September 29, 2025\nCleaning (i) September 30, 2025 - September 30, 2025\nOther (i) September 15, 2025 - September 16, 2025\n\n1 / 3",
+          "[object Object]Main Order Items\nTotal: €3,222.47\n106.08.01.0200\nBalde GmbH\n1.00 pc €154.27 €154.27\n\nAccepted\nElectrical Check (Apartment) Complete (Trade Cluster\nx8.0)\nApartment\n\n206.01.01.0610\nBalde GmbH\n1.00 pc €28.17 €28.17\n\nAccepted\nToilet Seat, Universal Hinges, White paint, with\nCover (Trade Cluster x1.0)\nBathroom\n\n306.03.01.0410\nBalde GmbH\n1.00 psch €137.60 €137.60\n\nAccepted\n2-room apartment with kitchen-hallway-bathroom up to 50 m² -\nRepainting ceiling (Trade Cluster\nx3.6)\nApartment\n\n406.03.02.0180\nBalde GmbH\n1.00 psch €339.70 €339.70\n\nAccepted\n2-room apartment with kitchen-hallway-bathroom up to 50 m²\nRepainting/cleaning wall\n(Trade Cluster x3.6)\nApartment\n\n506.03.02.0570\nBalde GmbH\n1.00 psch €52.90 €52.90\n\nAccepted\n2-room apartment with Kitchen-Hallway-Bathroom up to 50 m²\n\n(Small plastering areas), (Trade cluster x3.4)\nApartment\n\n606.07.03.0100\nBalde GmbH\n2.00 psch €255.41 €510.82\n\nAccepted\nRoom up to 8 m² - Laying laminate flooring\n(Trade cluster x7.2)\nEntrance hall,\nKitchen\n\n706.07.03.0110\nBalde GmbH\n1.00 psch €383.11 €383.11\n\nAccepted\nRoom up to 12 m² - Laying laminate flooring\n(Trade cluster x7.2)\nBedroom\n\n806.07.03.0120\nBalde GmbH\n1.00 psch €574.67 €574.67\n\nAccepted\nRoom up to 18 m² - Laying laminate flooring\n(Trade cluster x7.2)\nLiving room\n\n906.07.01.0310\nBalde GmbH\n1.00 pc €53.81 €53.81\n\nAccepted\nRoom up to 18 m² - Remove loosely laid old flooring\n\n(Trade cluster x7.4)\nLiving room\n\n1006.06.02.0050\nTDO Tischlerei Deflieze Oberhausen GmbH\n\nAccepted\nMake window/balcony door operable and lockable\n\n(Single element), (Trade cluster x6.2)\nBathroom, Kitchen,\nBedroom,\nLiving room\n\n2 / 3",
+          "[object Object]1106.06.03.0040\nTDO Tischlerei Deflieze Oberhausen GmbH\n\nAccepted\nReplace mailbox lock (Trade Cluster\nx6.2)\nApartment\n\n1206.06.01.0020\nTDO Tischlerei Deflieze Oberhausen GmbH\n\nAccepted\n2-room apartment with kitchen-hallway-bathroom / Make doors usable and lockable (Trade Cluster x6.2)\nApartment\n\n1306.06.01.0120\nTDO Tischlerei Deflieze Oberhausen GmbH\n\nAccepted\nReplace interior door leaf (without glass panel),\n\n(Trade Cluster x6.0)\nBathroom\n\n1406.06.01.0270\nTDO Tischlerei Deflieze Oberhausen GmbH\n\nAccepted\nSurcharge for custom-sized interior door leaf\n\n(Trade Cluster x6.2)\nBathroom\n\n1506.02.01.0100\nBuilding cleaning brass\n\nAccepted\nStairwell cleaning n. Vacant Apartment Renovation\nper floor (trade cluster x2.0)\nApartment\n\n1606.02.01.0020\nBuilding Cleaning Brass\n\naccepted\nCleaning of a vacant apartment >30-40 m²\n(trade cluster x2.0)\nApartment\n\n1706.09.01.0010\nBalde GmbH\n1.50 units €658.28 €987.42\n\naccepted\nDisposal of Mixed Waste (trade cluster\nx9.0)\nApartment\n\nOverview\nMain Contract Items: €3,222.47\nPowered by TCPDF (www.tcpdf.org)\n\n3 / 3"
+        ],
+        positions: [
+          {
+            id: "106.08.01.0200",
+            crowd: "1.00",
+            section: ["Apartment"],
+            originalPrice: 154.27,
+            units: "pc"
+          },
+          {
+            id: "206.01.01.0610",
+            crowd: "1.00",
+            section: ["Toilet", "Bathroom"],
+            originalPrice: 28.17,
+            units: "pc"
+          },
+          {
+            id: "306.03.01.0410",
+            crowd: "1.00",
+            section: ["Apartment"],
+            originalPrice: 137.6,
+            units: "psch"
+          },
+          {
+            id: "406.03.02.0180",
+            crowd: "1.00",
+            section: ["Apartment"],
+            originalPrice: 339.7,
+            units: "psch"
+          },
+          {
+            id: "506.03.02.0570",
+            crowd: "1.00",
+            section: ["Bathroom", "Kitchen", "Hallway", "Apartment"],
+            originalPrice: 52.9,
+            units: "psch"
+          },
+          {
+            id: "606.07.03.0100",
+            crowd: "2.00",
+            section: ["Kitchen", "Room", "Entrance"],
+            originalPrice: 255.41,
+            units: "psch"
+          },
+          {
+            id: "706.07.03.0110",
+            crowd: "1.00",
+            section: ["Room", "Bedroom"],
+            originalPrice: 383.11,
+            units: "psch"
+          },
+          {
+            id: "806.07.03.0120",
+            crowd: "1.00",
+            section: ["Room", "Living room"],
+            originalPrice: 574.67,
+            units: "psch"
+          },
+          {
+            id: "906.07.01.0310",
+            crowd: "1.00",
+            section: ["Room", "Living room"],
+            originalPrice: 53.81,
+            units: "pc"
+          },
+          {
+            id: "1006.06.02.0050",
+            crowd: "1.00",
+            section: ["Bathroom", "Kitchen", "Living room", "Bedroom"],
+            originalPrice: 0,
+            units: ""
+          },
+          {
+            id: "1106.06.03.0040",
+            crowd: "1.00",
+            section: ["Apartment"],
+            originalPrice: 0,
+            units: ""
+          },
+          {
+            id: "1206.06.01.0020",
+            crowd: "1.00",
+            section: ["Apartment"],
+            originalPrice: 0,
+            units: ""
+          },
+          {
+            id: "1306.06.01.0120",
+            crowd: "1.00",
+            section: ["Bathroom"],
+            originalPrice: 0,
+            units: ""
+          },
+          {
+            id: "1406.06.01.0270",
+            crowd: "1.00",
+            section: ["Bathroom"],
+            originalPrice: 0,
+            units: ""
+          },
+          {
+            id: "1506.02.01.0100",
+            crowd: "1.00",
+            section: ["Apartment"],
+            originalPrice: 0,
+            units: ""
+          },
+          {
+            id: "1606.02.01.0020",
+            crowd: "1.00",
+            section: ["Apartment"],
+            originalPrice: 0,
+            units: ""
+          },
+          {
+            id: "1706.09.01.0010",
+            crowd: "1.50",
+            section: ["Apartment"],
+            originalPrice: 658.28,
+            units: "units"
+          }
+        ]
+      };
+
+      // Handle file selection via input
+      fileInput.addEventListener('change', function (e) {
+        handleFileSelection(e.target.files[0]);
+      });
+
+      // Handle drag and drop
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+      });
+
+      function highlight() {
+        dropArea.classList.add('border-indigo-500', 'bg-indigo-50');
+      }
+
+      function unhighlight() {
+        dropArea.classList.remove('border-indigo-500', 'bg-indigo-50');
+      }
+
+      dropArea.addEventListener('drop', function (e) {
+        const dt = e.dataTransfer;
+        const file = dt.files[0];
+        handleFileSelection(file);
+      });
+
+      // Handle file selection
+      function handleFileSelection(file) {
+        if (file) {
+          // Validate file type
+          if (file.type !== 'application/pdf') {
+            showStatus('Please select a PDF file.', 'error');
+            resetFileSelection();
+            return;
+          }
+
+          // Validate file size (max 10MB)
+          if (file.size > 10 * 1024 * 1024) {
+            showStatus('File size exceeds 10MB limit.', 'error');
+            resetFileSelection();
+            return;
+          }
+
+          // Update UI with file info
+          fileNameDisplay.textContent = file.name;
+          fileNameDisplay.classList.add('has-file');
+
+          // Format and display file size
+          const fileSize = formatFileSize(file.size);
+          fileSizeDisplay.textContent = `(${fileSize})`;
+
+          // Show clear button
+          clearFileBtn.classList.remove('hidden');
+
+          // Enable upload button
+          uploadBtn.disabled = false;
+
+          // Show file preview
+          filePreview.classList.add('show');
+          filePreview.innerHTML = `
+            <p class="text-xs text-gray-700 mb-2">File: ${file.name}</p>
+            <p class="text-xs text-gray-700">Size: ${fileSize}</p>
+            <p class="text-xs text-gray-700 mt-2">Type: PDF Document</p>
+          `;
+
+          // Clear any previous status messages
+          hideStatus();
+        } else {
+          resetFileSelection();
+        }
+      }
+
+      // Format file size
+      function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' bytes';
+        else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        else return (bytes / 1048576).toFixed(1) + ' MB';
+      }
+
+      // Clear file selection
+      clearFileBtn.addEventListener('click', resetFileSelection);
+
+      function resetFileSelection() {
+        fileInput.value = '';
+        fileNameDisplay.textContent = 'No file selected';
+        fileNameDisplay.classList.remove('has-file');
+        fileSizeDisplay.textContent = '';
+        clearFileBtn.classList.add('hidden');
+        uploadBtn.disabled = true;
+        filePreview.classList.remove('show');
+        filePreview.innerHTML = '<p class="text-xs text-gray-500">File preview would appear here</p>';
+        hideStatus();
+        resultsContainer.classList.remove('show');
+        extractedTextContent.innerHTML = '<p class="text-gray-500 text-center">No extracted text yet. Upload a PDF to see its content here.</p>';
+        jsonContent.innerHTML = '<p class="text-gray-500 text-center">No structured data yet. Upload a PDF to see the parsed data here.</p>';
+        projectContent.innerHTML = '<p class="text-gray-500 text-center">No project details yet. Upload a PDF to see the project information here.</p>';
+        managerContent.innerHTML = '<p class="text-gray-500 text-center">No construction manager details yet. Upload a PDF to see the manager information here.</p>';
+        buildingContent.innerHTML = '<p class="text-gray-500 text-center">No building details yet. Upload a PDF to see the building information here.</p>';
+        scheduleContent.innerHTML = '<p class="text-gray-500 text-center">No construction schedule data yet. Upload a PDF to see the schedule here.</p>';
+        positionsContent.innerHTML = '<p class="text-gray-500 text-center">No order positions data yet. Upload a PDF to see the positions here.</p>';
+        resetPagination();
+        resetJsonFormatting();
+      }
+
+      // Reset pagination state
+      function resetPagination() {
+        textPages = [];
+        currentPageIndex = 0;
+        updatePaginationButtons();
+      }
+
+      // Reset JSON formatting state
+      function resetJsonFormatting() {
+        isJsonFormatted = true;
+        jsonData = {};
+        formatJsonBtn.textContent = 'Minify JSON';
+      }
+
+      // Handle form submission with Fetch API
+      uploadForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        if (!fileInput.files[0]) {
+          showStatus('Please select a file to upload.', 'error');
+          return;
+        }
+
+        // Show uploading state
+        uploadBtn.innerHTML = `
+          <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Processing...
+        `;
+        uploadBtn.disabled = true;
+
+        try {
+          // Create FormData object to send the file
+          const formData = new FormData();
+          formData.append('project', fileInput.files[0]);
+
+          // Use Fetch API to POST to /upload endpoint
+          const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            showStatus(`File "${fileInput.files[0].name}" processed successfully!`, 'success');
+
+            // Display the extracted results
+            displayResults(result);
+          } else {
+            const error = await response.text();
+            throw new Error(error || 'Upload failed');
+          }
+        } catch (error) {
+          console.error('Upload error:', error);
+          // For demo purposes, use sample data if API is not available
+          if (error.message.includes('Failed to fetch')) {
+            showStatus('Using demo data (API not available)', 'success');
+            displayResults(sampleApiResponse);
+          } else {
+            showStatus(`Processing failed: ${error.message}`, 'error');
+          }
+        } finally {
+          // Reset button state
+          uploadBtn.innerHTML = 'Upload & Extract Data';
+          uploadBtn.disabled = false;
+        }
+      });
+
+      // Display extracted results in all tabs
+      function displayResults(data) {
+        // Show the results container
+        resultsContainer.classList.add('show');
+
+        // Use splitPages array for pagination
+        textPages = data.splitPages || [];
+        currentPageIndex = 0;
+        displayCurrentPage();
+
+        // Store the JSON data
+        jsonData = data;
+
+        // Display formatted JSON
+        displayFormattedJson();
+
+        // Display project details
+        displayProjectDetails(data);
+
+        // Display construction manager details
+        displayConstructionManager(data.construction_manager || {});
+
+        // Display building details
+        displayBuildingDetails(data.building || {});
+
+        // Display construction schedule
+        displayConstructionSchedule(data.constructionSchedule || []);
+
+        // Display order positions
+        displayOrderPositions(data.positions || []);
+      }
+
+      // Display the current page of text
+      function displayCurrentPage() {
+        if (textPages.length > 0 && currentPageIndex < textPages.length) {
+          // Remove [object Object] artifacts
+          let pageContent = textPages[currentPageIndex].replace(/\[object Object\]/g, '');
+          extractedTextContent.textContent = pageContent;
+        } else {
+          extractedTextContent.textContent = 'No content available for this page.';
+        }
+
+        updatePaginationButtons();
+      }
+
+      // Update pagination buttons and indicator
+      function updatePaginationButtons() {
+        // Update page indicator
+        pageIndicator.textContent = `Page ${currentPageIndex + 1} of ${textPages.length}`;
+
+        // Update button states
+        prevPageBtn.disabled = currentPageIndex === 0;
+        nextPageBtn.disabled = currentPageIndex === textPages.length - 1;
+      }
+
+      // Display formatted JSON with syntax highlighting
+      function displayFormattedJson() {
+        const jsonString = isJsonFormatted
+          ? JSON.stringify(jsonData, null, 2)
+          : JSON.stringify(jsonData);
+
+        jsonContent.innerHTML = isJsonFormatted
+          ? syntaxHighlight(jsonString)
+          : jsonString;
+      }
+
+      // Display project details
+      function displayProjectDetails(data) {
+        let html = `
+          <div class="info-card">
+            <h3>Project Information</h3>
+            <div class="info-item">
+              <div class="info-label">External ID</div>
+              <div class="info-value">${data.external_id || 'Not available'}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Project Details</div>
+              <div class="info-value">${data.projectDetails || 'Not available'}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Rental Status</div>
+              <div class="info-value">${data.rentalStatus || 'Not available'}</div>
+            </div>
+          </div>
+        `;
+
+        projectContent.innerHTML = html;
+      }
+
+      // Display construction manager details
+      function displayConstructionManager(manager) {
+        let html = `
+          <div class="info-card">
+            <h3>Construction Manager</h3>
+            <div class="info-item">
+              <div class="info-label">Name</div>
+              <div class="info-value">${manager.name || 'Not available'}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Phone</div>
+              <div class="info-value">${manager.phone || 'Not available'}</div>
+            </div>
+          </div>
+        `;
+
+        managerContent.innerHTML = html;
+      }
+
+      // Display building details
+      function displayBuildingDetails(building) {
+        let html = `
+          <div class="info-card">
+            <h3>Building Details</h3>
+            <div class="info-item">
+              <div class="info-label">Apartment ID</div>
+              <div class="info-value">${building.apartmentId || 'Not available'}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Address</div>
+              <div class="info-value">${building.address || 'Not available'}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Location</div>
+              <div class="info-value">${building.location || 'Not available'}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Description</div>
+              <div class="info-value">${building.description || 'Not available'}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Notes</div>
+              <div class="info-value">${building.notes || 'Not available'}</div>
+            </div>
+          </div>
+        `;
+
+        buildingContent.innerHTML = html;
+      }
+
+      // Display construction schedule in a table
+      function displayConstructionSchedule(schedule) {
+        if (schedule.length === 0) {
+          scheduleContent.innerHTML = '<p class="text-gray-500 text-center">No construction schedule found in the document.</p>';
+          return;
+        }
+
+        let html = `
+          <div class="details-section">
+            <h4>Construction Schedule</h4>
+            <table class="schedule-table">
+              <thead>
+                <tr>
+                  <th>Trade</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        schedule.forEach(entry => {
+          html += `
+            <tr>
+              <td>${entry.trade}</td>
+              <td>${entry.startDate}</td>
+              <td>${entry.endDate}</td>
+            </tr>
+          `;
+        });
+
+        html += `
+              </tbody>
+            </table>
+          </div>
+        `;
+
+        scheduleContent.innerHTML = html;
+      }
+
+      // Display order positions in a table
+      function displayOrderPositions(positions) {
+        if (positions.length === 0) {
+          positionsContent.innerHTML = '<p class="text-gray-500 text-center">No order positions found in the document.</p>';
+          return;
+        }
+
+        let html = `
+          <div class="details-section">
+            <h4>Order Positions</h4>
+            <table class="positions-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Quantity</th>
+                  <th>Units</th>
+                  <th>Price (€)</th>
+                  <th>Sections</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        positions.forEach(position => {
+          html += `
+            <tr>
+              <td>${position.id}</td>
+              <td>${position.crowd}</td>
+              <td>${position.units}</td>
+              <td>${position.originalPrice}</td>
+              <td>${position.section.join(', ')}</td>
+            </tr>
+          `;
+        });
+
+        html += `
+              </tbody>
+            </table>
+          </div>
+        `;
+
+        positionsContent.innerHTML = html;
+      }
+
+      // Pagination button handlers
+      prevPageBtn.addEventListener('click', function () {
+        if (currentPageIndex > 0) {
+          currentPageIndex--;
+          displayCurrentPage();
+        }
+      });
+
+      nextPageBtn.addEventListener('click', function () {
+        if (currentPageIndex < textPages.length - 1) {
+          currentPageIndex++;
+          displayCurrentPage();
+        }
+      });
+
+      // JSON formatting toggle
+      formatJsonBtn.addEventListener('click', function () {
+        isJsonFormatted = !isJsonFormatted;
+        formatJsonBtn.textContent = isJsonFormatted ? 'Minify JSON' : 'Format JSON';
+        displayFormattedJson();
+      });
+
+      // Syntax highlighting for JSON
+      function syntaxHighlight(json) {
+        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+          let cls = 'json-number';
+          if (/^"/.test(match)) {
+            if (/:$/.test(match)) {
+              cls = 'json-key';
+            } else {
+              cls = 'json-string';
+            }
+          } else if (/true|false/.test(match)) {
+            cls = 'json-boolean';
+          } else if (/null/.test(match)) {
+            cls = 'json-null';
+          }
+          return '<span class="' + cls + '">' + match + '</span>';
+        });
+      }
+
+      // Tab functionality
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const tabId = button.getAttribute('data-tab');
+
+          // Update active tab button
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          button.classList.add('active');
+
+          // Show active tab content
+          tabContents.forEach(content => content.classList.remove('active'));
+          document.getElementById(tabId).classList.add('active');
+        });
+      });
+
+      // Copy button functionality
+      copyButtons.forEach(button => {
+        button.addEventListener('click', function () {
+          const contentType = this.getAttribute('data-content');
+          let textToCopy = '';
+
+          if (contentType === 'text') {
+            // Copy all text (all pages combined)
+            textToCopy = textPages.join('\n\n--- Page Break ---\n\n');
+          } else if (contentType === 'json') {
+            textToCopy = jsonContent.textContent;
+          } else if (contentType === 'project') {
+            // Extract project details for copying
+            textToCopy = `External ID: ${jsonData.external_id || 'N/A'}\nProject Details: ${jsonData.projectDetails || 'N/A'}\nRental Status: ${jsonData.rentalStatus || 'N/A'}`;
+          } else if (contentType === 'manager') {
+            // Extract manager details for copying
+            const manager = jsonData.construction_manager || {};
+            textToCopy = `Name: ${manager.name || 'N/A'}\nPhone: ${manager.phone || 'N/A'}`;
+          } else if (contentType === 'building') {
+            // Extract building details for copying
+            const building = jsonData.building || {};
+            textToCopy = `Apartment ID: ${building.apartmentId || 'N/A'}\nAddress: ${building.address || 'N/A'}\nLocation: ${building.location || 'N/A'}\nDescription: ${building.description || 'N/A'}\nNotes: ${building.notes || 'N/A'}`;
+          } else if (contentType === 'schedule') {
+            // Extract schedule data for copying
+            const schedule = jsonData.constructionSchedule || [];
+            textToCopy = schedule.map(entry =>
+              `${entry.trade}: ${entry.startDate} - ${entry.endDate}`
+            ).join('\n');
+          } else if (contentType === 'positions') {
+            // Extract positions data for copying
+            const positions = jsonData.positions || [];
+            textToCopy = positions.map(position =>
+              `${position.id}: ${position.crowd} ${position.units} - €${position.originalPrice} - ${position.section.join(', ')}`
+            ).join('\n');
+          }
+
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            const originalText = this.textContent;
+            this.textContent = 'Copied!';
+            this.classList.add('copied');
+
+            setTimeout(() => {
+              this.textContent = originalText;
+              this.classList.remove('copied');
+            }, 2000);
+          });
+        });
+      });
+
+      // Status message functions
+      function showStatus(message, type) {
+        statusMessage.textContent = message;
+        statusMessage.className = 'status-message';
+        statusMessage.classList.add(type === 'success' ? 'status-success' : 'status-error');
+        statusMessage.style.display = 'block';
+      }
+
+      function hideStatus() {
+        statusMessage.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+
+</html>
